@@ -98,15 +98,36 @@ class ConversationManager:
             else:
                 lead.use_type = ''
             if lead.use_type:
-                conv['state'] = ConversationState.COMPLETED
+                conv['state'] = ConversationState.WAITING_MODEL
                 await self._sync_to_hubspot(lead)
 
-        # Generar respuesta con LLM
-        response = await self.llm.generate_response(
-            conv['history'], 
-            conv['state'], 
-            conv.get('inventory_results')
-        )
+        elif current_state == ConversationState.WAITING_MODEL:
+            # Intentar extraer el modelo específico
+            lead.specific_model = await self.llm.extract_field(message, "equipment")
+            logger.info(f"Modelo específico extraído: {lead.specific_model}")
+            
+            # Si no se extrajo con el LLM, usar el mensaje completo como modelo
+            if not lead.specific_model:
+                lead.specific_model = message.strip()
+                logger.info(f"Usando mensaje completo como modelo: {lead.specific_model}")
+            
+            # Marcar como completado y generar cotización
+            conv['state'] = ConversationState.COMPLETED
+            await self._sync_to_hubspot(lead)
+            # Generar cotización automáticamente
+            quotation = self.generate_quotation(lead)
+            conv['quotation'] = quotation
+
+        # Si la conversación está completada, enviar cotización directamente
+        if conv['state'] == ConversationState.COMPLETED and 'quotation' in conv:
+            response = f"¡Perfecto! Aquí tienes tu cotización:\n\n{conv['quotation']}\n\nUn asesor se pondrá en contacto contigo pronto para dar seguimiento a tu solicitud. ¡Gracias por tu interés!"
+        else:
+            # Generar respuesta con LLM para otros estados
+            response = await self.llm.generate_response(
+                conv['history'], 
+                conv['state'], 
+                conv.get('inventory_results')
+            )
 
         # Agregar respuesta al historial
         conv['history'].append({"role": "assistant", "content": response})
@@ -157,4 +178,27 @@ class ConversationManager:
             'total': total_conversations,
             'active': active_conversations,
             'completed': completed_conversations
-        } 
+        }
+    
+    def generate_quotation(self, lead: Lead) -> str:
+        """Genera una cotización simple con la información del lead"""
+        quotation = f"""
+📋 **COTIZACIÓN**
+
+👤 **Cliente:** {lead.name or 'No especificado'}
+🏢 **Empresa:** {lead.company or 'No especificada'}
+📞 **Teléfono:** {lead.phone or 'No especificado'}
+📧 **Email:** {lead.email or 'No especificado'}
+📍 **Ubicación:** {lead.location or 'No especificada'}
+
+🔧 **Equipo de interés:** {lead.equipment_interest or 'No especificado'}
+📋 **Modelo específico:** {lead.specific_model or 'No especificado'}
+👥 **Tipo de cliente:** {lead.use_type or 'No especificado'}
+
+💰 **PRECIO:** $10,000.00 MXN
+
+---
+*Cotización generada automáticamente*
+*Precio fijo aplicable a todos los equipos*
+        """
+        return quotation.strip() 

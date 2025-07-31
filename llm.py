@@ -159,6 +159,18 @@ class LLMManager:
             )
             return base_prompt + instrucciones
 
+        elif state == ConversationState.WAITING_MODEL:
+            instrucciones = (
+                "<<INSTRUCCIONES DEL SISTEMA (NO RESPONDER)>>\n"
+                "Estado: PIDIENDO MODELO ESPECÍFICO\n"
+                "INSTRUCCIÓN: Pregunta el modelo específico que desea adquirir, explicando que es para generar la cotización.\n"
+                "Ejemplo: 'Para generar tu cotización, ¿qué modelo específico te interesa?'\n"
+                "Si el usuario hace preguntas sobre modelos o precios, respóndelas de forma concisa y luego pide el modelo.\n"
+                "Mantén respuestas cortas (máximo 30 palabras).\n"
+                "<</INSTRUCCIONES>>"
+            )
+            return base_prompt + instrucciones
+
         return base_prompt
 
     def _get_fallback_response(self, state: ConversationState) -> str:
@@ -171,7 +183,8 @@ class LLMManager:
             ConversationState.WAITING_EMAIL: "Para enviarte información, ¿cuál es tu email?",
             ConversationState.WAITING_LOCATION: "Para calcular costos de envío, ¿en qué ciudad necesitas el equipo?",
             ConversationState.WAITING_COMPANY: "Para generar tu cotización, ¿cuál es el nombre de tu empresa?",
-            ConversationState.WAITING_USE_TYPE: "Para ofrecerte mejores condiciones, ¿el equipo es para uso propio o reventa?"
+            ConversationState.WAITING_USE_TYPE: "Para ofrecerte mejores condiciones, ¿el equipo es para uso propio o reventa?",
+            ConversationState.WAITING_MODEL: "Para generar tu cotización, ¿qué modelo específico te interesa?"
         }
         return fallbacks.get(state, "¿Podrías repetir esa información?") 
     

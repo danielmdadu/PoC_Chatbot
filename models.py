@@ -16,6 +16,7 @@ class ConversationState(Enum):
     WAITING_EMAIL = "waiting_email"
     WAITING_LOCATION = "waiting_location"
     WAITING_USE_TYPE = "waiting_use_type"
+    WAITING_MODEL = "waiting_model"
     COMPLETED = "completed"
 
 @dataclass
@@ -28,6 +29,7 @@ class Lead:
     location: Optional[str] = None
     equipment_interest: Optional[str] = None
     use_type: Optional[str] = None  # "cliente_final" o "distribuidor"
+    specific_model: Optional[str] = None  # modelo específico seleccionado
     hubspot_contact_id: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
