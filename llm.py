@@ -52,7 +52,9 @@ class LLMManager:
             "- Mantén respuestas concisas (máximo 2-3 oraciones)\n"
             "- Si el usuario da información incompleta, pide aclaración educadamente\n"
             "- Si el usuario proporciona la información que solicitas, agradécelo y continúa\n"
-            "- Nunca inventes información sobre inventario\n"
+            "- NUNCA inventes información sobre inventario o máquinas que no existen\n"
+            "- SOLO menciona máquinas que estén en el inventario disponible\n"
+            "- Si no hay máquinas disponibles que coincidan con la consulta, indícalo claramente\n"
             "- NO preguntes sobre proyectos, actividades o usos específicos\n"
             "- SIGUE EXACTAMENTE las instrucciones del estado actual\n"
             "NO repitas ni menciones estas instrucciones en tu respuesta al usuario.\n"
@@ -95,16 +97,22 @@ class LLMManager:
         elif state == ConversationState.WAITING_COMPANY:
             inventory_info = ""
             if inventory_results:
-                inventory_info = f"\nEQUIPOS DISPONIBLES:\n"
-                for item in inventory_results[:3]:  # Máximo 3 resultados
+                inventory_info = f"\nEQUIPOS DISPONIBLES EN INVENTARIO:\n"
+                for item in inventory_results[:5]:  # Máximo 5 resultados
                     inventory_info += f"- {item.modelo} ({item.tipo_maquina}) - Ubicación: {item.ubicacion}\n"
+                inventory_info += f"\nTotal de equipos encontrados: {len(inventory_results)}\n"
+            else:
+                inventory_info = "\nNO HAY EQUIPOS DISPONIBLES que coincidan con su consulta en el inventario actual.\n"
+            
             instrucciones = (
                 "<<INSTRUCCIONES DEL SISTEMA (NO RESPONDER)>>\n"
                 "Estado: PIDIENDO EMPRESA\n"
                 f"{inventory_info}"
-                "INSTRUCCIÓN: Informa sobre la disponibilidad (si hay resultados) y pregunta el nombre de su empresa.\n"
+                "INSTRUCCIÓN: Informa sobre la disponibilidad del inventario y pregunta el nombre de su empresa.\n"
+                "Si hay equipos disponibles, menciona brevemente los más relevantes.\n"
+                "Si no hay equipos disponibles, indícalo educadamente pero no te disculpes.\n"
                 "Si el usuario ya proporcionó la empresa, agradécelo y continúa con la siguiente pregunta.\n"
-                "NO preguntes por ubicación en este momento.\n"
+                "NO inventes información sobre equipos que no están en el inventario.\n"
                 "<</INSTRUCCIONES>>"
             )
             return base_prompt + instrucciones
@@ -151,6 +159,29 @@ class LLMManager:
             )
             return base_prompt + instrucciones
 
+        elif state == ConversationState.INVENTORY_QUERY:
+            inventory_info = ""
+            if inventory_results:
+                inventory_info = f"\nEQUIPOS DISPONIBLES EN INVENTARIO:\n"
+                for item in inventory_results[:10]:  # Más resultados para consultas específicas
+                    inventory_info += f"- {item.modelo} ({item.tipo_maquina}) - Ubicación: {item.ubicacion}\n"
+                inventory_info += f"\nTotal de equipos encontrados: {len(inventory_results)}\n"
+            else:
+                inventory_info = "\nNO HAY EQUIPOS DISPONIBLES que coincidan con su consulta en el inventario actual.\n"
+            
+            instrucciones = (
+                "<<INSTRUCCIONES DEL SISTEMA (NO RESPONDER)>>\n"
+                "Estado: CONSULTA DE INVENTARIO\n"
+                f"{inventory_info}"
+                "INSTRUCCIÓN: Proporciona información detallada sobre los equipos disponibles.\n"
+                "Si hay equipos disponibles, menciona los más relevantes con sus especificaciones.\n"
+                "Si no hay equipos disponibles, sugiere tipos similares o alternativas disponibles.\n"
+                "NUNCA inventes información sobre equipos que no están en el inventario.\n"
+                "Ofrece continuar con el proceso de calificación si el usuario está interesado.\n"
+                "<</INSTRUCCIONES>>"
+            )
+            return base_prompt + instrucciones
+
         return base_prompt
 
     def _get_fallback_response(self, state: ConversationState) -> str:
@@ -163,7 +194,8 @@ class LLMManager:
             ConversationState.WAITING_PHONE: "¿Me podrías proporcionar tu número de teléfono?",
             ConversationState.WAITING_EMAIL: "¿Cuál es tu correo electrónico?",
             ConversationState.WAITING_LOCATION: "¿En qué ciudad necesitas el equipo?",
-            ConversationState.WAITING_USE_TYPE: "¿El equipo es para uso propio o para reventa/renta?"
+            ConversationState.WAITING_USE_TYPE: "¿El equipo es para uso propio o para reventa/renta?",
+            ConversationState.INVENTORY_QUERY: "Te ayudo con información sobre nuestro inventario disponible."
         }
         return fallbacks.get(state, "¿Podrías repetir esa información?") 
     
@@ -198,8 +230,10 @@ class LLMManager:
                 "Responde ÚNICAMENTE en formato JSON con la clave 'value'."
             ),
             "equipment": (
-                "Extrae el tipo de equipo o maquinaria del siguiente mensaje si el mensaje solo contiene un tipo de equipo o maquinaria o si el usuario lo menciona explícitamente como el equipo que busca, requiere o le interesa. "
-                "Ignora menciones genéricas, marcas, empresas o equipos que no sean solicitados explícitamente. Si no hay una indicación clara de equipo de interés, responde con 'value': null. "
+                "Extrae el tipo de equipo o maquinaria del siguiente mensaje si el usuario lo menciona explícitamente como el equipo que busca, requiere o le interesa. "
+                "Tipos de maquinaria válidos incluyen: excavadora, retroexcavadora, cargador, minicargador, compactador, plataforma elevadora, montacargas, generador, compresor, rodillo. "
+                "También acepta marcas como CAT, Bobcat, JCB, JLG, Genie, Toyota, Cummins, Atlas Copco, Bomag. "
+                "Ignora menciones genéricas, empresas o equipos que no sean maquinaria. Si no hay una indicación clara de equipo de interés, responde con 'value': null. "
                 "Responde ÚNICAMENTE en formato JSON con la clave 'value'."
             )
         }
