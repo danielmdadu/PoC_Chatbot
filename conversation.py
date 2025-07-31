@@ -57,13 +57,6 @@ class ConversationManager:
             logger.info(f"Equipo de interés extraído: {lead.equipment_interest}")
             if lead.equipment_interest:
                 conv['inventory_results'] = self.inventory.search_equipment(message)
-                conv['state'] = ConversationState.WAITING_COMPANY
-                await self._sync_to_hubspot(lead)
-
-        elif current_state == ConversationState.WAITING_COMPANY:
-            lead.company = await self.llm.extract_field(message, "company")
-            logger.info(f"Empresa extraída: {lead.company}")
-            if lead.company:
                 conv['state'] = ConversationState.WAITING_PHONE
                 await self._sync_to_hubspot(lead)
 
@@ -85,6 +78,13 @@ class ConversationManager:
             lead.location = await self.llm.extract_field(message, "location")
             logger.info(f"Ubicación extraída: {lead.location}")
             if lead.location:
+                conv['state'] = ConversationState.WAITING_COMPANY
+                await self._sync_to_hubspot(lead)
+
+        elif current_state == ConversationState.WAITING_COMPANY:
+            lead.company = await self.llm.extract_field(message, "company")
+            logger.info(f"Empresa extraída: {lead.company}")
+            if lead.company:
                 conv['state'] = ConversationState.WAITING_USE_TYPE
                 await self._sync_to_hubspot(lead)
 
