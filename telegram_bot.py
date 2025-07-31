@@ -20,6 +20,7 @@ class TelegramBot:
         self.application.add_handler(CommandHandler("start", self.start_command))
         self.application.add_handler(CommandHandler("humano", self.human_command))
         self.application.add_handler(CommandHandler("reset", self.reset_command))
+        self.application.add_handler(CommandHandler("stats", self.stats_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
     
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -48,6 +49,30 @@ class TelegramBot:
         await update.message.reply_text(
             "Conversación reiniciada. Puedes comenzar de nuevo con /start"
         )
+    
+    async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handler para mostrar estadísticas de conversaciones guardadas"""
+        stats = self.conversation_manager.get_saved_conversations_stats()
+        current_stats = self.conversation_manager.get_conversation_stats()
+        
+        message = f"""📊 **ESTADÍSTICAS DEL BOT**
+
+💾 **Conversaciones Guardadas:**
+- Archivos totales: {stats['total_files']}
+- Tamaño total: {stats['total_size_mb']} MB
+
+🔄 **Conversaciones Activas:**
+- Total: {current_stats['total']}
+- Activas: {current_stats['active']}
+- Completadas: {current_stats['completed']}
+
+📁 **Últimos archivos:**
+"""
+        
+        for file in stats['files'][:5]:  # Mostrar solo los últimos 5
+            message += f"- {file}\n"
+        
+        await update.message.reply_text(message)
     
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handler para mensajes de texto"""
