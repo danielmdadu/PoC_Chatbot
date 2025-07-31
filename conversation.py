@@ -3,9 +3,9 @@ Gestión de conversaciones del chatbot
 """
 
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict
 from models import Lead, ConversationState
-from inventory import InventoryManager, InventoryItem
+from inventory import InventoryManager
 from hubspot import HubSpotManager
 from llm import LLMManager
 from config import logger
@@ -53,32 +53,10 @@ class ConversationManager:
                 await self._sync_to_hubspot(lead)
 
         elif current_state == ConversationState.WAITING_EQUIPMENT:
-            # Extraer información del equipo
-            equipment_info = await self.llm.extract_field(message, "equipment")
-            logger.info(f"Información de equipo extraída: {equipment_info}")
-            
-            if equipment_info:
-                lead.equipment_interest = equipment_info
-                
-                # Realizar búsqueda en inventario
-                inventory_results = self.inventory.search_equipment(message)
-                conv['inventory_results'] = inventory_results
-                
-                # Si no hay resultados, intentar búsqueda más amplia
-                if not inventory_results:
-                    # Buscar por tipo de máquina
-                    type_results = self.inventory.get_items_by_type(equipment_info)
-                    if type_results:
-                        conv['inventory_results'] = type_results
-                        logger.info(f"Búsqueda por tipo encontrada: {len(type_results)} resultados")
-                    else:
-                        # Buscar por marca
-                        brand_results = self.inventory.get_items_by_brand(equipment_info)
-                        if brand_results:
-                            conv['inventory_results'] = brand_results
-                            logger.info(f"Búsqueda por marca encontrada: {len(brand_results)} resultados")
-                
-                logger.info(f"Resultados de inventario: {len(conv['inventory_results'])} items")
+            lead.equipment_interest = await self.llm.extract_field(message, "equipment")
+            logger.info(f"Equipo de interés extraído: {lead.equipment_interest}")
+            if lead.equipment_interest:
+                conv['inventory_results'] = self.inventory.search_equipment(message)
                 conv['state'] = ConversationState.WAITING_COMPANY
                 await self._sync_to_hubspot(lead)
 
@@ -143,75 +121,6 @@ class ConversationManager:
             conv['history'] = conv['history'][-10:]
 
         return response
-    
-    async def handle_inventory_query(self, telegram_id: str, message: str) -> str:
-        """Maneja consultas específicas sobre el inventario"""
-        conv = self.get_conversation(telegram_id)
-        
-        # Agregar mensaje del usuario al historial
-        conv['history'].append({"role": "user", "content": message})
-        
-        # Realizar búsqueda en inventario
-        inventory_results = self.inventory.search_equipment(message)
-        conv['inventory_results'] = inventory_results
-        
-        # Si no hay resultados, intentar búsquedas más específicas
-        if not inventory_results:
-            # Buscar por tipo de máquina
-            type_results = self.inventory.get_items_by_type(message)
-            if type_results:
-                conv['inventory_results'] = type_results
-                logger.info(f"Búsqueda por tipo encontrada: {len(type_results)} resultados")
-            else:
-                # Buscar por marca
-                brand_results = self.inventory.get_items_by_brand(message)
-                if brand_results:
-                    conv['inventory_results'] = brand_results
-                    logger.info(f"Búsqueda por marca encontrada: {len(brand_results)} resultados")
-                else:
-                    # Buscar por ubicación
-                    location_results = self.inventory.get_items_by_location(message)
-                    if location_results:
-                        conv['inventory_results'] = location_results
-                        logger.info(f"Búsqueda por ubicación encontrada: {len(location_results)} resultados")
-        
-        # Cambiar estado temporalmente para la consulta
-        original_state = conv['state']
-        conv['state'] = ConversationState.INVENTORY_QUERY
-        
-        # Generar respuesta con información del inventario
-        response = await self.llm.generate_response(
-            conv['history'], 
-            conv['state'], 
-            conv.get('inventory_results')
-        )
-        
-        # Agregar respuesta al historial
-        conv['history'].append({"role": "assistant", "content": response})
-        
-        # Restaurar estado original
-        conv['state'] = original_state
-        
-        return response
-    
-    def get_inventory_summary(self) -> Dict:
-        """Obtiene un resumen del inventario"""
-        return self.inventory.get_inventory_summary()
-    
-    def search_inventory_by_criteria(self, criteria: Dict) -> List[InventoryItem]:
-        """Busca en el inventario por criterios específicos"""
-        results = []
-        
-        if 'tipo' in criteria:
-            results = self.inventory.get_items_by_type(criteria['tipo'])
-        elif 'marca' in criteria:
-            results = self.inventory.get_items_by_brand(criteria['marca'])
-        elif 'ubicacion' in criteria:
-            results = self.inventory.get_items_by_location(criteria['ubicacion'])
-        elif 'query' in criteria:
-            results = self.inventory.search_equipment(criteria['query'])
-        
-        return results
     
     async def _sync_to_hubspot(self, lead: Lead):
         """Sincroniza el lead con HubSpot"""

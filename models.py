@@ -16,7 +16,6 @@ class ConversationState(Enum):
     WAITING_EMAIL = "waiting_email"
     WAITING_LOCATION = "waiting_location"
     WAITING_USE_TYPE = "waiting_use_type"
-    INVENTORY_QUERY = "inventory_query"  # Nuevo estado para consultas de inventario
     COMPLETED = "completed"
 
 @dataclass
