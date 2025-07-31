@@ -1,0 +1,22 @@
+# Dependencias principales
+python-telegram-bot==20.7
+groq==0.4.1
+pandas==2.1.4
+httpx==0.25.2
+
+# Utilidades adicionales
+python-dotenv==1.0.0
+asyncio==3.4.3
+dataclasses-json==0.6.3
+
+# Para desarrollo y testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+black==23.11.0
+flake8==6.1.0
+
+# Logging mejorado
+structlog==23.2.0
+
+# Para refresh token de HubSpot
+requests>=2.31.0
