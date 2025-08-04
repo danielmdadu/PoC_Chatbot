@@ -141,10 +141,6 @@ class ConversationManager:
             conv['state'] = ConversationState.WAITING_NAME
             logger.info(f"Estado cambiado de INITIAL a WAITING_NAME")
 
-        # Guardar conversación periódicamente (cada 5 mensajes)
-        if len(conv['history']) % 10 == 0 and len(conv['history']) > 0:
-            self._save_conversation_to_file(telegram_id, conv)
-
         # Limpiar historial si es muy largo
         if len(conv['history']) > 20:
             conv['history'] = conv['history'][-10:]
@@ -198,23 +194,23 @@ class ConversationManager:
     def generate_quotation(self, lead: Lead) -> str:
         """Genera una cotización simple con la información del lead"""
         quotation = f"""
-📋 **COTIZACIÓN**
+📋 COTIZACIÓN
 
-👤 **Cliente:** {lead.name or 'No especificado'}
-🏢 **Empresa:** {lead.company or 'No especificada'}
-📞 **Teléfono:** {lead.phone or 'No especificado'}
-📧 **Email:** {lead.email or 'No especificado'}
-📍 **Ubicación:** {lead.location or 'No especificada'}
+👤 Cliente: {lead.name or 'No especificado'}
+🏢 Empresa: {lead.company or 'No especificada'}
+📞 Teléfono: {lead.phone or 'No especificado'}
+📧 Email: {lead.email or 'No especificado'}
+📍 Ubicación: {lead.location or 'No especificada'}
 
-🔧 **Equipo de interés:** {lead.equipment_interest or 'No especificado'}
-📋 **Modelo específico:** {lead.specific_model or 'No especificado'}
-👥 **Tipo de cliente:** {lead.use_type or 'No especificado'}
+🔧 Equipo de interés: {lead.equipment_interest or 'No especificado'}
+📋 Modelo específico: {lead.specific_model or 'No especificado'}
+👥 Tipo de cliente: {lead.use_type or 'No especificado'}
 
-💰 **PRECIO:** $10,000.00 MXN
+💰 PRECIO: $10,000.00 MXN
 
 ---
-*Cotización generada automáticamente*
-*Precio fijo aplicable a todos los equipos*
+Cotización generada automáticamente
+Precio fijo aplicable a todos los equipos
         """
         return quotation.strip()
     
