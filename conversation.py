@@ -164,14 +164,50 @@ class ConversationManager:
         """Reinicia una conversación"""
         if telegram_id in self.conversations:
             # Guardar conversación actual antes de reiniciar
-            conv = self.conversations[telegram_id]
-            if conv['history']:  # Solo guardar si hay historial
-                self._save_conversation_to_file(telegram_id, conv)
-                logger.info(f"Conversación guardada antes del reset para usuario {telegram_id}")
+            # conv = self.conversations[telegram_id]
+            # if conv['history']:  # Solo guardar si hay historial
+            #     self._save_conversation_to_file(telegram_id, conv)
+            #     logger.info(f"Conversación guardada antes del reset para usuario {telegram_id}")
             
             # Reiniciar conversación
             del self.conversations[telegram_id]
             logger.info(f"Conversación reiniciada para usuario {telegram_id}")
+    
+    async def reset_conversation_with_new_contact(self, telegram_id: str):
+        """Reinicia una conversación y crea un nuevo contacto en HubSpot"""
+        if telegram_id in self.conversations:
+            # Guardar conversación actual antes de reiniciar
+            # conv = self.conversations[telegram_id]
+            # if conv['history']:  # Solo guardar si hay historial
+            #     self._save_conversation_to_file(telegram_id, conv)
+            #     logger.info(f"Conversación guardada antes del reset para usuario {telegram_id}")
+            
+            # Reiniciar conversación
+            del self.conversations[telegram_id]
+            logger.info(f"Conversación reiniciada para usuario {telegram_id}")
+        
+        # Crear nueva conversación con nuevo lead
+        new_lead = Lead(telegram_id=telegram_id, created_at=datetime.now().isoformat())
+        
+        # Crear nuevo contacto en HubSpot
+        try:
+            contact_id = await self.hubspot.create_new_contact(new_lead)
+            if contact_id:
+                new_lead.hubspot_contact_id = contact_id
+                logger.info(f"Nuevo contacto creado en HubSpot para reset. Contact ID: {contact_id}")
+            else:
+                logger.warning(f"No se pudo crear nuevo contacto en HubSpot para reset. Telegram ID: {telegram_id}")
+        except Exception as e:
+            logger.error(f"Error creando nuevo contacto en HubSpot para reset: {e}")
+        
+        # Inicializar nueva conversación
+        self.conversations[telegram_id] = {
+            'state': ConversationState.INITIAL,
+            'lead': new_lead,
+            'history': [],
+            'inventory_results': []
+        }
+        logger.info(f"Nueva conversación inicializada para usuario {telegram_id} con nuevo contacto en HubSpot")
     
     def get_conversation_stats(self) -> Dict:
         """Obtiene estadísticas de las conversaciones"""

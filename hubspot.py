@@ -110,6 +110,41 @@ class HubSpotManager:
             logger.error(f"Error en HubSpot: {e}")
             return None
     
+    async def create_new_contact(self, lead: Lead) -> Optional[str]:
+        """Crea un nuevo contacto en HubSpot sin verificar si existe uno previo"""
+        async def _core():
+            # Preparar propiedades del contacto
+            properties = {
+                "telegram_id": lead.telegram_id,
+                "telegram_lead": "true",
+                "lifecyclestage": "lead"
+            }
+            if lead.name:
+                properties["firstname"] = lead.name
+            if lead.company:
+                properties["empresa_asociada"] = lead.company
+            if lead.phone:
+                properties["phone"] = lead.phone
+            if lead.email:
+                properties["email"] = lead.email
+            if lead.location:
+                properties["city"] = lead.location
+            if lead.equipment_interest:
+                properties["equipo_interesado"] = lead.equipment_interest
+            if lead.use_type:
+                properties["tipo_lead"] = lead.use_type
+            
+            logger.info(f"Creando nuevo contacto en HubSpot para reset - Telegram ID: {lead.telegram_id}")
+            logger.info(f"Propiedades a enviar: {properties}")
+            
+            return await self._create_contact(properties)
+        
+        try:
+            return await self._with_token_refresh(_core)
+        except Exception as e:
+            logger.error(f"Error creando nuevo contacto en HubSpot: {e}")
+            return None
+    
     async def _create_contact(self, properties: Dict) -> Optional[str]:
         """Crea un nuevo contacto"""
         async with httpx.AsyncClient() as client:

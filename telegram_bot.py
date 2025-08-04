@@ -45,9 +45,9 @@ class TelegramBot:
     async def reset_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handler para reiniciar conversación"""
         telegram_id = str(update.effective_user.id)
-        self.conversation_manager.reset_conversation(telegram_id)
+        await self.conversation_manager.reset_conversation_with_new_contact(telegram_id)
         await update.message.reply_text(
-            "Conversación reiniciada. Puedes comenzar de nuevo con /start"
+            "Conversación reiniciada. Se ha creado un nuevo contacto en el CRM. Puedes comenzar de nuevo con /start"
         )
     
     async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
