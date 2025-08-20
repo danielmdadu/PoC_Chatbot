@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 HUBSPOT_ACCESS_TOKEN = os.getenv('HUBSPOT_ACCESS_TOKEN')
-INVENTORY_CSV_PATH = os.getenv('INVENTORY_CSV_PATH', 'inventario_maquinaria.csv')
 
 def validate_environment():
     """Valida que todas las variables de entorno requeridas estén presentes"""

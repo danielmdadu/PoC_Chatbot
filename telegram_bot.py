@@ -2,7 +2,6 @@
 Bot de Telegram para el chatbot
 """
 
-import logging
 from telegram import Update
 from telegram.ext import Application, MessageHandler, CommandHandler, ContextTypes, filters
 from conversation import ConversationManager

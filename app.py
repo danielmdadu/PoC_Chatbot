@@ -12,7 +12,6 @@ from config import (
     TELEGRAM_BOT_TOKEN, 
     GROQ_API_KEY, 
     HUBSPOT_ACCESS_TOKEN, 
-    INVENTORY_CSV_PATH,
     validate_environment,
     logger
 )
@@ -25,7 +24,7 @@ def main():
     
     try:
         # Inicializar componentes
-        inventory_manager = InventoryManager(INVENTORY_CSV_PATH)
+        inventory_manager = InventoryManager()
         hubspot_manager = HubSpotManager(HUBSPOT_ACCESS_TOKEN)
         llm_manager = LLMManager(GROQ_API_KEY)
         

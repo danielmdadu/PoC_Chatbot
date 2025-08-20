@@ -7,13 +7,12 @@ from models import InventoryItem
 from config import logger
 
 class InventoryManager:
-    def __init__(self, csv_path: str):
-        self.csv_path = csv_path
+    def __init__(self):
         self.inventory: List[InventoryItem] = []
         self.load_inventory()
     
     def load_inventory(self):
-        """Carga el inventario desde el archivo CSV (todas las máquinas se consideran disponibles)"""
+        """Carga el inventario desde la base de datos (todas las máquinas se consideran disponibles)"""
 
         # TODO: Cargar el inventario desde la base de datos
         try:

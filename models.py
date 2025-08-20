@@ -5,7 +5,6 @@ Modelos de datos para el chatbot
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
-from datetime import datetime
 
 class ConversationState(Enum):
     INITIAL = "initial"
