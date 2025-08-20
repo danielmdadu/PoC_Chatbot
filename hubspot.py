@@ -75,20 +75,30 @@ class HubSpotManager:
             }
             if lead.name:
                 properties["firstname"] = lead.name
-            if lead.company:
-                properties["empresa_asociada"] = lead.company
+            if lead.company_name:
+                properties["empresa_asociada"] = lead.company_name
             if lead.phone:
                 properties["phone"] = lead.phone
             if lead.email:
                 properties["email"] = lead.email
-            if lead.location:
-                properties["city"] = lead.location
             if lead.equipment_interest:
                 properties["equipo_interesado"] = lead.equipment_interest
-            if lead.use_type:
-                properties["tipo_lead"] = lead.use_type
+            
+            # TODO: Agregar campo para giro de empresa cuando se cree en HubSpot
+            # if lead.company_business:
+            #     properties["giro_empresa"] = lead.company_business
+            
+            # TODO: Agregar campo para características de máquina cuando se cree en HubSpot
+            # if lead.machine_characteristics:
+            #     properties["caracteristicas_maquina"] = "; ".join(lead.machine_characteristics)
+            
+            # TODO: Agregar campo para tipo de cliente (distribuidor/cliente final) cuando se cree en HubSpot
+            # if lead.is_distributor is not None:
+            #     properties["tipo_cliente"] = "distribuidor" if lead.is_distributor else "cliente_final"
+            
             logger.info(f"Preparando contacto para HubSpot - Telegram ID: {lead.telegram_id}")
             logger.info(f"Propiedades a enviar: {properties}")
+            
             # Intentar actualizar contacto existente primero
             if lead.hubspot_contact_id:
                 result = await self._update_contact(lead.hubspot_contact_id, properties)
@@ -120,18 +130,26 @@ class HubSpotManager:
             }
             if lead.name:
                 properties["firstname"] = lead.name
-            if lead.company:
-                properties["empresa_asociada"] = lead.company
+            if lead.company_name:
+                properties["empresa_asociada"] = lead.company_name
             if lead.phone:
                 properties["phone"] = lead.phone
             if lead.email:
                 properties["email"] = lead.email
-            if lead.location:
-                properties["city"] = lead.location
             if lead.equipment_interest:
                 properties["equipo_interesado"] = lead.equipment_interest
-            if lead.use_type:
-                properties["tipo_lead"] = lead.use_type
+            
+            # TODO: Agregar campo para giro de empresa cuando se cree en HubSpot
+            # if lead.company_business:
+            #     properties["giro_empresa"] = lead.company_business
+            
+            # TODO: Agregar campo para características de máquina cuando se cree en HubSpot
+            # if lead.machine_characteristics:
+            #     properties["caracteristicas_maquina"] = "; ".join(lead.machine_characteristics)
+            
+            # TODO: Agregar campo para tipo de cliente (distribuidor/cliente final) cuando se cree en HubSpot
+            # if lead.is_distributor is not None:
+            #     properties["tipo_cliente"] = "distribuidor" if lead.is_distributor else "cliente_final"
             
             logger.info(f"Creando nuevo contacto en HubSpot para reset - Telegram ID: {lead.telegram_id}")
             logger.info(f"Propiedades a enviar: {properties}")

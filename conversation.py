@@ -41,6 +41,7 @@ class ConversationManager:
         
         # Procesar según el estado actual
         logger.info(f"Procesando mensaje en estado: {current_state.value}")
+        
         if current_state == ConversationState.INITIAL:
             # En el estado inicial, solo cambiar a WAITING_NAME después de generar la respuesta
             pass
@@ -56,68 +57,86 @@ class ConversationManager:
             lead.equipment_interest = await self.llm.extract_field(message, "equipment")
             logger.info(f"Equipo de interés extraído: {lead.equipment_interest}")
             if lead.equipment_interest:
-                conv['inventory_results'] = self.inventory.search_equipment()
-                conv['state'] = ConversationState.WAITING_PHONE
+                # Inicializar lista de características de máquina y índice de pregunta
+                lead.machine_characteristics = []
+                lead.current_question_index = 0
+                conv['state'] = ConversationState.WAITING_EQUIPMENT_QUESTIONS
                 await self._sync_to_hubspot(lead)
 
-        elif current_state == ConversationState.WAITING_PHONE:
-            lead.phone = await self.llm.extract_field(message, "phone")
-            logger.info(f"Teléfono extraído: {lead.phone}")
-            if lead.phone:
-                conv['state'] = ConversationState.WAITING_EMAIL
+        elif current_state == ConversationState.WAITING_EQUIPMENT_QUESTIONS:
+            # Agregar la respuesta a las características de la máquina
+            if lead.machine_characteristics is None:
+                lead.machine_characteristics = []
+            
+            # Crear una descripción de la respuesta basada en el tipo de equipo y pregunta actual
+            equipment_type = lead.equipment_interest.lower()
+            characteristic_description = self._create_characteristic_description(equipment_type, message, lead.current_question_index)
+            
+            if characteristic_description:
+                lead.machine_characteristics.append(characteristic_description)
+                logger.info(f"Característica agregada: {characteristic_description}")
+            
+            # Verificar si hay más preguntas que hacer
+            if self._has_more_questions(equipment_type, lead.current_question_index):
+                # Incrementar índice de pregunta y continuar en el mismo estado
+                lead.current_question_index += 1
+                logger.info(f"Siguiente pregunta para {equipment_type}, índice: {lead.current_question_index}")
                 await self._sync_to_hubspot(lead)
-
-        elif current_state == ConversationState.WAITING_EMAIL:
-            lead.email = await self.llm.extract_field(message, "email")
-            logger.info(f"Email extraído: {lead.email}")
-            if lead.email:
-                conv['state'] = ConversationState.WAITING_LOCATION
-                await self._sync_to_hubspot(lead)
-
-        elif current_state == ConversationState.WAITING_LOCATION:
-            lead.location = await self.llm.extract_field(message, "location")
-            logger.info(f"Ubicación extraída: {lead.location}")
-            if lead.location:
-                conv['state'] = ConversationState.WAITING_COMPANY
-                await self._sync_to_hubspot(lead)
-
-        elif current_state == ConversationState.WAITING_COMPANY:
-            lead.company = await self.llm.extract_field(message, "company")
-            logger.info(f"Empresa extraída: {lead.company}")
-            if lead.company:
-                conv['state'] = ConversationState.WAITING_USE_TYPE
-                await self._sync_to_hubspot(lead)
-
-        elif current_state == ConversationState.WAITING_USE_TYPE:
-            # Clasificar tipo de cliente
-            message_lower = message.lower()
-            if any(word in message_lower for word in ['propio', 'uso', 'empresa', 'final']):
-                lead.use_type = 'cliente_final'
-            elif any(word in message_lower for word in ['reventa', 'renta', 'distribuir', 'vender']):
-                lead.use_type = 'distribuidor'
             else:
-                lead.use_type = ''
-            if lead.use_type:
-                conv['state'] = ConversationState.WAITING_MODEL
+                # No hay más preguntas, cambiar al siguiente estado
+                conv['state'] = ConversationState.WAITING_DISTRIBUTOR
+                logger.info(f"Todas las preguntas completadas para {equipment_type}, cambiando a WAITING_DISTRIBUTOR")
                 await self._sync_to_hubspot(lead)
 
-        elif current_state == ConversationState.WAITING_MODEL:
-            # Intentar extraer el modelo específico
-            lead.specific_model = await self.llm.extract_field(message, "equipment")
-            logger.info(f"Modelo específico extraído: {lead.specific_model}")
+        elif current_state == ConversationState.WAITING_DISTRIBUTOR:
+            is_distributor = await self.llm.extract_field(message, "is_distributor")
+            logger.info(f"Tipo de cliente extraído: {is_distributor}")
             
-            # Si no se extrajo con el LLM, usar el mensaje completo como modelo
-            if not lead.specific_model:
-                lead.specific_model = message.strip()
-                logger.info(f"Usando mensaje completo como modelo: {lead.specific_model}")
+            if is_distributor:
+                # Convertir a booleano
+                if is_distributor.lower() in ['true', 'verdadero', 'si', 'sí', 'yes']:
+                    lead.is_distributor = True
+                elif is_distributor.lower() in ['false', 'falso', 'no']:
+                    lead.is_distributor = False
+                else:
+                    # Intentar extraer con el nuevo método
+                    use_type = await self.llm.extract_field(message, "use_type")
+                    if use_type == 'venta':
+                        lead.is_distributor = True
+                    elif use_type == 'uso_empresa':
+                        lead.is_distributor = False
+                    else:
+                        lead.is_distributor = None
+                
+                if lead.is_distributor is not None:
+                    conv['state'] = ConversationState.WAITING_QUOTATION_DATA
+                    await self._sync_to_hubspot(lead)
+
+        elif current_state == ConversationState.WAITING_QUOTATION_DATA:
+            # Extraer todos los datos de cotización de una vez
+            quotation_data = await self.llm.extract_quotation_data(message)
+            logger.info(f"Datos de cotización extraídos: {quotation_data}")
             
-            # Marcar como completado y generar cotización
-            conv['state'] = ConversationState.COMPLETED
-            await self._sync_to_hubspot(lead)
+            if quotation_data:
+                # Actualizar el lead con los datos extraídos
+                if quotation_data.get('name'):
+                    lead.name = quotation_data['name']
+                if quotation_data.get('company_name'):
+                    lead.company_name = quotation_data['company_name']
+                if quotation_data.get('company_business'):
+                    lead.company_business = quotation_data['company_business']
+                if quotation_data.get('email'):
+                    lead.email = quotation_data['email']
+                if quotation_data.get('phone'):
+                    lead.phone = quotation_data['phone']
+                
+                # Marcar como completado
+                conv['state'] = ConversationState.COMPLETED
+                await self._sync_to_hubspot(lead)
 
         # Si la conversación está completada, enviar mensaje de despedida
         if conv['state'] == ConversationState.COMPLETED:
-            response = f"Un asesor se pondrá en contacto contigo pronto para dar seguimiento a tu solicitud. ¡Gracias por tu interés!"
+            response = f"Perfecto {lead.name}, un asesor se pondrá en contacto contigo pronto para dar seguimiento a tu solicitud de {lead.equipment_interest}. ¡Gracias por tu interés!"
             
             # TODO: Guardar conversación completada
         else:
@@ -125,7 +144,11 @@ class ConversationManager:
             response = await self.llm.generate_response(
                 conv['history'], 
                 conv['state'], 
-                conv.get('inventory_results')
+                conv.get('inventory_results'),
+                {
+                    'equipment_interest': lead.equipment_interest,
+                    'current_question_index': lead.current_question_index
+                }
             )
 
         # Agregar respuesta al historial
@@ -141,6 +164,56 @@ class ConversationManager:
             conv['history'] = conv['history'][-10:]
 
         return response
+    
+    def _create_characteristic_description(self, equipment_type: str, message: str, question_index: int) -> str:
+        """Crea una descripción de la característica basada en el tipo de equipo y el índice de pregunta"""
+        equipment_type = equipment_type.lower()
+        
+        if 'soldadora' in equipment_type or 'soldar' in equipment_type:
+            return f"Amperaje/electrodo requerido: {message}"
+        elif 'compresor' in equipment_type:
+            return f"Capacidad de volumen de aire/herramienta: {message}"
+        elif 'torre' in equipment_type and 'iluminacion' in equipment_type:
+            return f"Requerimiento LED: {message}"
+        elif 'lgmg' in equipment_type:
+            if question_index == 0:
+                return f"Altura de trabajo necesaria: {message}"
+            elif question_index == 1:
+                return f"Actividad a realizar: {message}"
+            elif question_index == 2:
+                return f"Ubicación (exterior/interior): {message}"
+            else:
+                return f"Características de trabajo LGMG: {message}"
+        elif 'generador' in equipment_type:
+            if question_index == 0:
+                return f"Actividad para la que se requiere: {message}"
+            elif question_index == 1:
+                return f"Capacidad en kVA o kW: {message}"
+            else:
+                return f"Características del generador: {message}"
+        elif 'rompedor' in equipment_type:
+            return f"Uso del rompedor: {message}"
+        else:
+            return f"Características del equipo: {message}"
+    
+    def _has_more_questions(self, equipment_type: str, current_question_index: int) -> bool:
+        """Determina si hay más preguntas para hacer para un tipo de equipo específico."""
+        equipment_type = equipment_type.lower()
+        
+        if 'soldadora' in equipment_type or 'soldar' in equipment_type:
+            return current_question_index < 0  # Solo 1 pregunta (índice 0)
+        elif 'compresor' in equipment_type:
+            return current_question_index < 0  # Solo 1 pregunta (índice 0)
+        elif 'torre' in equipment_type and 'iluminacion' in equipment_type:
+            return current_question_index < 0  # Solo 1 pregunta (índice 0)
+        elif 'lgmg' in equipment_type:
+            return current_question_index < 2  # 3 preguntas (índices 0, 1, 2)
+        elif 'generador' in equipment_type:
+            return current_question_index < 1  # 2 preguntas (índices 0, 1)
+        elif 'rompedor' in equipment_type:
+            return current_question_index < 0  # Solo 1 pregunta (índice 0)
+        else:
+            return False
     
     async def _sync_to_hubspot(self, lead: Lead):
         """Sincroniza el lead con HubSpot"""
