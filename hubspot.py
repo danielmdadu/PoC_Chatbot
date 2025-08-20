@@ -4,7 +4,6 @@ Integración con HubSpot CRM
 
 import httpx
 import requests
-import logging
 import os
 from typing import Dict, Optional, Callable, Any
 from models import Lead
